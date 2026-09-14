@@ -357,24 +357,84 @@ async function connect(){
         setStatus('Socket متصل');
 
         try {
-            const startResponse = await fetch('/api/rooms/me/start', {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${token}`
+            const meResponse = await fetch(
+                '/api/auth/me',
+                {
+                    headers:{
+                        Authorization:`Bearer ${token}`
+                    }
                 }
-            });
+            );
 
-            const startData = await startResponse.json();
+            const meData = await meResponse.json();
 
-            if(!startResponse.ok || !startData.room){
+            if(!meResponse.ok || !meData?.ok){
                 throw new Error(
-                    startData.message ||
-                    startData.error ||
-                    'تعذر تشغيل الغرفة'
+                    meData?.error ||
+                    meData?.message ||
+                    'تعذر معرفة المستخدم الحالي'
                 );
             }
 
-            setStatus('تم تشغيل الغرفة');
+            const currentUserId =
+                meData.user?.id ||
+                meData.user?.user_id ||
+                meData.data?.user?.id ||
+                meData.data?.user?.user_id ||
+                meData.data?.id ||
+                meData.data?.user_id ||
+                meData.id ||
+                meData.user_id;
+
+            if(!currentUserId){
+                console.error('AUTH_ME_RESPONSE', meData);
+                throw new Error('تعذر تحديد معرف المستخدم');
+            }
+
+            const roomResponse = await fetch(
+                `/api/rooms/${encodeURIComponent(roomId)}`
+            );
+
+            const roomData = await roomResponse.json();
+
+            if(!roomResponse.ok || !roomData?.ok || !roomData?.room){
+                throw new Error(
+                    roomData?.error ||
+                    roomData?.message ||
+                    'تعذر تحميل بيانات الغرفة'
+                );
+            }
+
+            const room = roomData.room;
+
+            const isOwner =
+                room.owner_user_id === currentUserId;
+
+            if(isOwner && room.status !== 'LIVE'){
+                setStatus('جاري تشغيل الغرفة...');
+
+                const startResponse = await fetch(
+                    '/api/room-engine/start',
+                    {
+                        method:'POST',
+                        headers:{
+                            Authorization:`Bearer ${token}`
+                        }
+                    }
+                );
+
+                const startData = await startResponse.json();
+
+                if(!startResponse.ok || !startData?.ok){
+                    throw new Error(
+                        startData?.error ||
+                        startData?.message ||
+                        'تعذر تشغيل الغرفة'
+                    );
+                }
+
+                setStatus('تم تشغيل الغرفة');
+            }
 
             socket.emit(
                 'room:join',
@@ -388,13 +448,13 @@ async function connect(){
                         return;
                     }
 
-                    setStatus('تم تشغيل الغرفة ودخولها بنجاح');
+                    setStatus('تم دخول الغرفة بنجاح');
                 }
             );
 
-        } catch(error) {
+        }catch(error){
             setStatus(
-                'تعذر تشغيل الغرفة: ' +
+                'تعذر تجهيز الغرفة: ' +
                 error.message
             );
         }

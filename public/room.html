@@ -392,7 +392,12 @@ async function connect(){
             }
 
             const roomResponse = await fetch(
-                `/api/rooms/${encodeURIComponent(roomId)}`
+                `/api/rooms/${encodeURIComponent(roomId)}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
             );
 
             const roomData = await roomResponse.json();

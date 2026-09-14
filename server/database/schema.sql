@@ -101,3 +101,93 @@ ON follows(followed_user_id);
 
 CREATE INDEX IF NOT EXISTS idx_follows_follower
 ON follows(follower_user_id);
+
+
+-- 002_add_password_hash.sql
+PRAGMA foreign_keys = ON;
+
+ALTER TABLE users
+ADD COLUMN password_hash TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_users_username
+ON users(username);
+
+
+-- 003_profile.sql
+PRAGMA foreign_keys = ON;
+
+ALTER TABLE users
+ADD COLUMN bio TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_users_status
+ON users(status);
+
+
+-- 004_room_settings.sql
+PRAGMA foreign_keys = ON;
+
+ALTER TABLE rooms ADD COLUMN rules TEXT;
+ALTER TABLE rooms ADD COLUMN welcome_message TEXT;
+ALTER TABLE rooms ADD COLUMN cover_image TEXT;
+ALTER TABLE rooms ADD COLUMN max_viewers INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE rooms ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_rooms_status
+ON rooms(status);
+
+CREATE INDEX IF NOT EXISTS idx_rooms_owner
+ON rooms(owner_user_id);
+
+
+-- 006_social_relations.sql
+PRAGMA foreign_keys = ON;
+
+ALTER TABLE friendships
+ADD COLUMN requested_by_user_id TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_friendships_user
+ON friendships(user_id, friend_user_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_friendships_requester
+ON friendships(requested_by_user_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_follows_pair
+ON follows(follower_user_id, followed_user_id);
+
+CREATE INDEX IF NOT EXISTS idx_visits_visitor
+ON visits(visitor_user_id, visited_at);
+
+
+-- 010_room_seats.sql
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS room_seats (
+    seat_id TEXT PRIMARY KEY,
+    room_id TEXT NOT NULL,
+    seat_number INTEGER NOT NULL,
+    user_id TEXT,
+    status TEXT NOT NULL DEFAULT 'EMPTY',
+    mic_enabled INTEGER NOT NULL DEFAULT 0,
+    camera_enabled INTEGER NOT NULL DEFAULT 0,
+    joined_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(room_id, seat_number),
+
+    FOREIGN KEY(room_id)
+        REFERENCES rooms(room_id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY(user_id)
+        REFERENCES users(user_id)
+        ON DELETE SET NULL,
+
+    CHECK(seat_number >= 1 AND seat_number <= 12),
+    CHECK(status IN ('EMPTY', 'REQUESTED', 'OCCUPIED'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_room_seats_room
+ON room_seats(room_id);
+
+CREATE INDEX IF NOT EXISTS idx_room_seats_user
+ON room_seats(user_id);

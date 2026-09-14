@@ -21,6 +21,13 @@ registerRoomSocket(io);
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
+
+// Use the bundled sql.js-based sqlite3 compatibility layer.
+// This keeps the existing service SQL interface while removing
+// the dependency on a system-installed sqlite3 binary.
+const SQLITE_BIN = path.join(ROOT, 'scripts', 'sqlite3');
+process.env.PATH = `${path.dirname(SQLITE_BIN)}:${process.env.PATH || ''}`;
+
 const DB_PATH = path.join(
     ROOT,
     'data',

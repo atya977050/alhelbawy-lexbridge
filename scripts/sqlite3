@@ -1,0 +1,95 @@
+#!/usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+
+const initSqlJs = require('sql.js');
+
+async function main() {
+    const args = process.argv.slice(2);
+
+    const jsonMode = args[0] === '-json';
+    const offset = jsonMode ? 1 : 0;
+
+    const dbPath = args[offset];
+    const sqlArg = args[offset + 1];
+
+    if (!dbPath) {
+        throw new Error('sqlite3 compatibility layer: missing database path');
+    }
+
+    let sql = sqlArg;
+
+    if (!sql) {
+        sql = fs.readFileSync(0, 'utf8');
+    }
+
+    const SQL = await initSqlJs();
+
+    let db;
+
+    if (fs.existsSync(dbPath)) {
+        const data = fs.readFileSync(dbPath);
+        db = new SQL.Database(data);
+    } else {
+        db = new SQL.Database();
+
+        const schemaPath = path.join(
+            __dirname,
+            '..',
+            'server',
+            'database',
+            'schema.sql'
+        );
+
+        if (fs.existsSync(schemaPath)) {
+            const schema = fs.readFileSync(schemaPath, 'utf8');
+            db.run(schema);
+        }
+    }
+
+    const results = db.exec(sql);
+
+    if (jsonMode) {
+        const rows = [];
+
+        for (const result of results) {
+            for (const values of result.values) {
+                const row = {};
+
+                result.columns.forEach((column, index) => {
+                    row[column] = values[index];
+                });
+
+                rows.push(row);
+            }
+        }
+
+        process.stdout.write(
+            rows.length ? JSON.stringify(rows) : ''
+        );
+    } else {
+        for (const result of results) {
+            for (const values of result.values) {
+                process.stdout.write(
+                    values.map(value => value == null ? '' : String(value)).join('|') +
+                    '\n'
+                );
+            }
+        }
+    }
+
+    const exported = db.export();
+    const tempPath = `${dbPath}.tmp`;
+
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+    fs.writeFileSync(tempPath, Buffer.from(exported));
+    fs.renameSync(tempPath, dbPath);
+
+    db.close();
+}
+
+main().catch(error => {
+    console.error(error.message);
+    process.exit(1);
+});

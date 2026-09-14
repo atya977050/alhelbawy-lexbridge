@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+    <title>الهلباوى lexbridge</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background: #111;
+            color: #fff;
+        }
+
+        .app {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 24px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+        }
+
+        header h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+        }
+
+        header p {
+            margin: 0;
+            color: #aaa;
+        }
+
+        main {
+            flex: 1;
+            display: grid;
+            place-items: center;
+            padding: 30px 20px 100px;
+        }
+
+        .welcome {
+            width: min(700px, 100%);
+            padding: 32px;
+            border: 1px solid #333;
+            border-radius: 20px;
+            background: #191919;
+            text-align: center;
+        }
+
+        .welcome h2 {
+            margin-top: 0;
+        }
+
+        .tabs {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            background: #181818;
+            border-top: 1px solid #333;
+        }
+
+        .tabs button {
+            padding: 18px 5px;
+            border: 0;
+            background: transparent;
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        .tabs button:first-child {
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+
+        <header>
+            <h1>الهلباوى lexbridge</h1>
+            <p>
+                منصة اجتماعية مباشرة
+            </p>
+        </header>
+
+        <main>
+            <section class="welcome">
+                <h2 id="welcomeTitle">مرحبًا بك</h2>
+
+                <div id="authBox">
+                    <div style="display:grid;gap:10px;margin-top:20px">
+
+                        <input
+                            id="username"
+                            placeholder="اسم المستخدم"
+                            autocomplete="username"
+                            style="padding:13px;border-radius:10px;border:1px solid #444;background:#111;color:#fff"
+                        >
+
+                        <input
+                            id="password"
+                            type="password"
+                            placeholder="كلمة المرور"
+                            autocomplete="current-password"
+                            style="padding:13px;border-radius:10px;border:1px solid #444;background:#111;color:#fff"
+                        >
+
+                        <input
+                            id="displayName"
+                            placeholder="الاسم الظاهر — عند التسجيل"
+                            style="padding:13px;border-radius:10px;border:1px solid #444;background:#111;color:#fff"
+                        >
+
+                        <button
+                            id="loginBtn"
+                            style="padding:13px;border:0;border-radius:10px;background:#333;color:#fff"
+                        >
+                            دخول
+                        </button>
+
+                        <button
+                            id="registerBtn"
+                            style="padding:13px;border:0;border-radius:10px;background:#444;color:#fff"
+                        >
+                            إنشاء حساب جديد
+                        </button>
+
+                    </div>
+
+                    <div id="authStatus"
+                         style="margin-top:14px;color:#aaa;font-size:14px">
+                    </div>
+                </div>
+
+                <div id="userBox" style="display:none;margin-top:20px">
+
+                    <p id="userInfo"></p>
+
+                    <button
+                        id="openRoomBtn"
+                        style="padding:13px 20px;border:0;border-radius:10px;background:#28633b;color:#fff"
+                    >
+                        🎙️ دخول غرفتي
+                    </button>
+
+                    <div style="margin-top:16px">
+                        <input
+                            id="roomIdInput"
+                            type="text"
+                            placeholder="أدخل معرف غرفة للدخول إليها"
+                            style="width:100%;box-sizing:border-box;padding:13px;border-radius:10px;border:1px solid #555;background:#111;color:#fff"
+                        >
+
+                        <button
+                            id="joinRoomBtn"
+                            style="margin-top:8px;padding:13px 20px;border:0;border-radius:10px;background:#6b4f1d;color:#fff"
+                        >
+                            🚪 دخول غرفة أخرى
+                        </button>
+                    </div>
+
+                    <button
+                        id="logoutBtn"
+                        style="margin-right:8px;padding:13px 20px;border:0;border-radius:10px;background:#7d2525;color:#fff"
+                    >
+                        خروج
+                    </button>
+
+                </div>
+            </section>
+        </main>
+
+        <nav class="tabs">
+            <button id="roomTab">غرفة</button>
+            <button>نشاط</button>
+            <button>رسائل</button>
+            <button>أنا</button>
+        </nav>
+
+    </div>
+
+<script>
+(() => {
+    const usernameEl = document.getElementById('username');
+    const passwordEl = document.getElementById('password');
+    const displayNameEl = document.getElementById('displayName');
+
+    const loginBtn = document.getElementById('loginBtn');
+    const registerBtn = document.getElementById('registerBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const openRoomBtn = document.getElementById('openRoomBtn');
+    const roomIdInput = document.getElementById('roomIdInput');
+    const joinRoomBtn = document.getElementById('joinRoomBtn');
+
+    const authBox = document.getElementById('authBox');
+    const userBox = document.getElementById('userBox');
+    const authStatus = document.getElementById('authStatus');
+    const userInfo = document.getElementById('userInfo');
+    const welcomeTitle = document.getElementById('welcomeTitle');
+
+    function status(message) {
+        authStatus.textContent = message || '';
+    }
+
+    function getToken() {
+        return localStorage.getItem('lexbridge_token');
+    }
+
+    async function api(url, options = {}) {
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(options.headers || {})
+        };
+
+        const token = getToken();
+
+        if (token) {
+            headers.Authorization = `Bearer ${token}`;
+        }
+
+        const response = await fetch(url, {
+            ...options,
+            headers
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(
+                data.message ||
+                data.error ||
+                'حدث خطأ في الطلب'
+            );
+        }
+
+        return data;
+    }
+
+    function showUser(user) {
+        authBox.style.display = 'none';
+        userBox.style.display = 'block';
+
+        welcomeTitle.textContent =
+            `مرحبًا ${user.display_name || user.username}`;
+
+        userInfo.textContent =
+            `الحساب: ${user.username}`;
+
+        status('تم تسجيل الدخول بنجاح');
+    }
+
+    function showLoggedOut() {
+        authBox.style.display = 'block';
+        userBox.style.display = 'none';
+        welcomeTitle.textContent = 'مرحبًا بك';
+    }
+
+    async function checkSession() {
+        const token = getToken();
+
+        if (!token) {
+            showLoggedOut();
+            return;
+        }
+
+        try {
+            const data = await api('/api/auth/me');
+            showUser(data.user);
+        } catch {
+            localStorage.removeItem('lexbridge_token');
+            showLoggedOut();
+        }
+    }
+
+    loginBtn.addEventListener('click', async () => {
+        try {
+            status('جاري تسجيل الدخول...');
+
+            const data = await api('/api/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({
+                    username: usernameEl.value.trim(),
+                    password: passwordEl.value
+                })
+            });
+
+            const token = data?.session?.token;
+
+            if (!token) {
+                throw new Error('لم يتم استلام رمز الجلسة');
+            }
+
+            localStorage.setItem('lexbridge_token', token);
+
+            showUser(data.user || data.session);
+        } catch (error) {
+            status(error.message);
+        }
+    });
+
+    registerBtn.addEventListener('click', async () => {
+        try {
+            status('جاري إنشاء الحساب...');
+
+            const username = usernameEl.value.trim();
+            const password = passwordEl.value;
+            const displayName =
+                displayNameEl.value.trim() || username;
+
+            const data = await api('/api/accounts/register', {
+                method: 'POST',
+                body: JSON.stringify({
+                    username,
+                    password,
+                    displayName
+                })
+            });
+
+            if (data?.session?.token) {
+                localStorage.setItem(
+                    'lexbridge_token',
+                    data.session.token
+                );
+
+                showUser(data.user || data.session);
+                return;
+            }
+
+            status(
+                'تم إنشاء الحساب. سجّل الدخول الآن.'
+            );
+        } catch (error) {
+            status(error.message);
+        }
+    });
+
+    openRoomBtn.addEventListener('click', async () => {
+        try {
+            status('جاري فتح الغرفة الشخصية...');
+
+            const data = await api('/api/rooms/me');
+
+            if (!data.room) {
+                throw new Error('الغرفة الشخصية غير موجودة');
+            }
+
+            const token = getToken();
+
+            window.location.href =
+                `/room.html?room=${encodeURIComponent(data.room.room_id)}&token=${encodeURIComponent(token)}`;
+        } catch (error) {
+            status(error.message);
+        }
+    });
+
+    joinRoomBtn.addEventListener('click', async () => {
+        try {
+            const roomId = roomIdInput.value.trim();
+
+            if (!roomId) {
+                throw new Error('أدخل معرف الغرفة');
+            }
+
+            const token = getToken();
+
+            window.location.href =
+                `/room.html?room=${encodeURIComponent(roomId)}&token=${encodeURIComponent(token)}`;
+
+        } catch (error) {
+            status(error.message);
+        }
+    });
+
+    logoutBtn.addEventListener('click', async () => {
+        try {
+            await api('/api/auth/logout', {
+                method: 'POST'
+            });
+        } catch {}
+
+        localStorage.removeItem('lexbridge_token');
+        showLoggedOut();
+        status('تم تسجيل الخروج');
+    });
+
+    checkSession();
+})();
+</script>
+
+</body>
+</html>

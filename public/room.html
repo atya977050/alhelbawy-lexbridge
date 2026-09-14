@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>الهلباوى LexBridge — غرفة البث</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+    margin:0;
+    font-family:Arial,sans-serif;
+    background:#101014;
+    color:#fff;
+}
+header{
+    padding:16px;
+    background:#17171d;
+    border-bottom:1px solid #292932;
+}
+h1{margin:0;font-size:20px}
+#status{
+    margin-top:6px;
+    color:#aaa;
+    font-size:13px;
+}
+.room{
+    padding:12px;
+}
+.video-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+    gap:12px;
+}
+.card{
+    position:relative;
+    background:#18181f;
+    border-radius:14px;
+    overflow:hidden;
+    min-height:220px;
+}
+video{
+    width:100%;
+    height:280px;
+    object-fit:cover;
+    background:#050505;
+    display:block;
+}
+.label{
+    position:absolute;
+    right:10px;
+    bottom:10px;
+    background:#000b;
+    padding:6px 10px;
+    border-radius:8px;
+}
+.controls{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:14px;
+}
+button{
+    border:0;
+    border-radius:10px;
+    padding:12px 16px;
+    background:#292933;
+    color:#fff;
+    font-size:15px;
+}
+button:active{opacity:.7}
+button.danger{background:#7d2525}
+button.active{background:#28633b}
+.log{
+    margin-top:14px;
+    background:#17171d;
+    padding:12px;
+    border-radius:10px;
+    min-height:70px;
+    color:#bbb;
+    font-size:13px;
+    white-space:pre-wrap;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>⚖️ الهلباوى LexBridge — غرفة البث</h1>
+    <div id="status">جاري الاتصال...</div>
+</header>
+
+<main class="room">
+
+<div class="video-grid">
+
+    <div class="card">
+        <video id="localVideo" autoplay muted playsinline></video>
+        <div class="label">أنا</div>
+    </div>
+
+    <div class="card">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <div class="label">الطرف الآخر</div>
+    </div>
+
+</div>
+
+<div class="controls">
+    <button id="startMedia">🎙️📷 تشغيل الصوت والكاميرا</button>
+    <button id="toggleMic">🎙️ الميكروفون</button>
+    <button id="toggleCamera">📷 الكاميرا</button>
+    <button id="callPeer">📞 بدء الاتصال</button>
+    <button id="leaveRoom" class="danger">🚪 مغادرة</button>
+</div>
+
+<div id="log" class="log"></div>
+
+</main>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+const params = new URLSearchParams(location.search);
+
+const roomId = params.get('room');
+const token = params.get('token');
+let targetSocketId = params.get('peer');
+
+const statusEl = document.getElementById('status');
+const logEl = document.getElementById('log');
+
+const localVideo = document.getElementById('localVideo');
+const remoteVideo = document.getElementById('remoteVideo');
+
+let socket = null;
+let localStream = null;
+let peerConnection = null;
+
+const rtcConfig = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' }
+    ]
+};
+
+function log(message){
+    logEl.textContent += message + '\n';
+}
+
+function setStatus(message){
+    statusEl.textContent = message;
+    log(message);
+}
+
+function requireConfig(){
+    if(!roomId){
+        throw new Error('معرف الغرفة غير موجود');
+    }
+
+    if(!token){
+        throw new Error('رمز الجلسة غير موجود');
+    }
+}
+
+async function startMedia(){
+    if(localStream){
+        return localStream;
+    }
+
+    localStream = await navigator.mediaDevices.getUserMedia({
+        audio:true,
+        video:true
+    });
+
+    localVideo.srcObject = localStream;
+
+    document
+        .getElementById('startMedia')
+        .classList.add('active');
+
+    setStatus('تم تشغيل الميكروفون والكاميرا');
+
+    return localStream;
+}
+
+function createPeerConnection(peerId){
+    if(peerConnection){
+        peerConnection.close();
+    }
+
+    peerConnection = new RTCPeerConnection(rtcConfig);
+
+    for(const track of localStream.getTracks()){
+        peerConnection.addTrack(track, localStream);
+    }
+
+    peerConnection.ontrack = event => {
+        if(event.streams && event.streams[0]){
+            remoteVideo.srcObject = event.streams[0];
+            setStatus('تم استقبال الوسائط من الطرف الآخر');
+        }
+    };
+
+    peerConnection.onicecandidate = event => {
+        if(!event.candidate){
+            return;
+        }
+
+        socket.emit(
+            'webrtc:ice-candidate',
+            {
+                roomId,
+                targetSocketId:peerId,
+                payload:event.candidate
+            }
+        );
+    };
+
+    peerConnection.onconnectionstatechange = () => {
+        setStatus(
+            'حالة WebRTC: ' +
+            peerConnection.connectionState
+        );
+    };
+
+    return peerConnection;
+}
+
+async function startCall(){
+    if(!socket){
+        throw new Error('Socket غير متصل');
+    }
+
+    if(!targetSocketId){
+        const response = await new Promise(resolve => {
+            socket.emit(
+                'webrtc:peers',
+                {roomId},
+                resolve
+            );
+        });
+
+        if(!response?.ok){
+            throw new Error(
+                response?.error || 'تعذر اكتشاف الطرف الآخر'
+            );
+        }
+
+        const peers = response.data?.peers || [];
+
+        if(peers.length === 0){
+            throw new Error(
+                'لا يوجد طرف آخر متصل بالغرفة'
+            );
+        }
+
+        targetSocketId = peers[0].socketId;
+
+        log(
+            'تم اكتشاف الطرف الآخر تلقائيًا: ' +
+            targetSocketId
+        );
+    }
+
+    await startMedia();
+
+    const pc = createPeerConnection(targetSocketId);
+
+    const offer = await pc.createOffer();
+
+    await pc.setLocalDescription(offer);
+
+    const response = await new Promise(resolve => {
+        socket.emit(
+            'webrtc:offer',
+            {
+                roomId,
+                targetSocketId,
+                payload:offer
+            },
+            resolve
+        );
+    });
+
+    if(!response?.ok){
+        throw new Error(
+            response?.error || 'فشل إرسال العرض'
+        );
+    }
+
+    setStatus('تم إرسال Offer');
+}
+
+async function handleOffer(data){
+    await startMedia();
+
+    const peerId = data.fromSocketId;
+
+    const pc = createPeerConnection(peerId);
+
+    await pc.setRemoteDescription(
+        new RTCSessionDescription(data.payload)
+    );
+
+    const answer = await pc.createAnswer();
+
+    await pc.setLocalDescription(answer);
+
+    socket.emit(
+        'webrtc:answer',
+        {
+            roomId,
+            targetSocketId:peerId,
+            payload:answer
+        }
+    );
+
+    setStatus('تم استقبال Offer وإرسال Answer');
+}
+
+async function handleAnswer(data){
+    if(!peerConnection){
+        return;
+    }
+
+    await peerConnection.setRemoteDescription(
+        new RTCSessionDescription(data.payload)
+    );
+
+    setStatus('تم استقبال Answer');
+}
+
+async function handleIce(data){
+    if(!peerConnection || !data.payload){
+        return;
+    }
+
+    try{
+        await peerConnection.addIceCandidate(
+            new RTCIceCandidate(data.payload)
+        );
+    }catch(error){
+        log('ICE ERROR: ' + error.message);
+    }
+}
+
+async function connect(){
+    requireConfig();
+
+    socket = io({
+        auth:{token},
+        transports:['websocket']
+    });
+
+    socket.on('connect', async () => {
+        setStatus('Socket متصل');
+
+        try {
+            const startResponse = await fetch('/api/rooms/me/start', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            const startData = await startResponse.json();
+
+            if(!startResponse.ok || !startData.room){
+                throw new Error(
+                    startData.message ||
+                    startData.error ||
+                    'تعذر تشغيل الغرفة'
+                );
+            }
+
+            setStatus('تم تشغيل الغرفة');
+
+            socket.emit(
+                'room:join',
+                {roomId},
+                response => {
+                    if(!response?.ok){
+                        setStatus(
+                            'فشل دخول الغرفة: ' +
+                            (response?.error || '')
+                        );
+                        return;
+                    }
+
+                    setStatus('تم تشغيل الغرفة ودخولها بنجاح');
+                }
+            );
+
+        } catch(error) {
+            setStatus(
+                'تعذر تشغيل الغرفة: ' +
+                error.message
+            );
+        }
+    });
+
+    socket.on('connect_error', error => {
+        setStatus(
+            'فشل الاتصال: ' +
+            error.message
+        );
+    });
+
+    socket.on('webrtc:offer', handleOffer);
+    socket.on('webrtc:answer', handleAnswer);
+    socket.on('webrtc:ice-candidate', handleIce);
+
+    socket.on('disconnect', () => {
+        setStatus('تم قطع اتصال Socket');
+    });
+}
+
+document
+    .getElementById('startMedia')
+    .onclick = async () => {
+        try{
+            await startMedia();
+        }catch(error){
+            setStatus(
+                'تعذر تشغيل الكاميرا/الميكروفون: ' +
+                error.message
+            );
+        }
+    };
+
+document
+    .getElementById('callPeer')
+    .onclick = async () => {
+        try{
+            await startCall();
+        }catch(error){
+            setStatus(
+                'فشل بدء الاتصال: ' +
+                error.message
+            );
+        }
+    };
+
+document
+    .getElementById('toggleMic')
+    .onclick = () => {
+        if(!localStream){
+            return;
+        }
+
+        const tracks = localStream.getAudioTracks();
+
+        for(const track of tracks){
+            track.enabled = !track.enabled;
+        }
+
+        setStatus(
+            tracks[0]?.enabled
+                ? 'الميكروفون يعمل'
+                : 'الميكروفون مغلق'
+        );
+    };
+
+document
+    .getElementById('toggleCamera')
+    .onclick = () => {
+        if(!localStream){
+            return;
+        }
+
+        const tracks = localStream.getVideoTracks();
+
+        for(const track of tracks){
+            track.enabled = !track.enabled;
+        }
+
+        setStatus(
+            tracks[0]?.enabled
+                ? 'الكاميرا تعمل'
+                : 'الكاميرا مغلقة'
+        );
+    };
+
+document
+    .getElementById('leaveRoom')
+    .onclick = () => {
+        if(socket){
+            socket.emit(
+                'room:leave',
+                {roomId}
+            );
+
+            socket.disconnect();
+        }
+
+        if(peerConnection){
+            peerConnection.close();
+        }
+
+        if(localStream){
+            for(const track of localStream.getTracks()){
+                track.stop();
+            }
+        }
+
+        setStatus('تمت مغادرة الغرفة');
+    };
+
+try{
+    connect();
+}catch(error){
+    setStatus(error.message);
+}
+</script>
+
+</body>
+</html>

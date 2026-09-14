@@ -1,0 +1,19 @@
+{
+  "name": "alhelbawy-lexbridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "الهلباوى LexBridge Live Platform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "check": "node --check server.js"
+  },
+  "dependencies": {
+    "express": "^4.22.2",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.3"
+  }
+}

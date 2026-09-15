@@ -39,6 +39,20 @@ function protectedRoute(handler) {
 }
 
 router.get(
+    '/available',
+    protectedRoute(async (req, res) => {
+        const rooms = roomCenter.getAvailableRooms();
+
+        res.json({
+            ok: true,
+            data: {
+                rooms
+            }
+        });
+    })
+);
+
+router.get(
     '/',
     protectedRoute(async (req, res) => {
         const data =

@@ -1,6 +1,12 @@
 const roomEngine = require('../services/room-engine-service');
 const roomSeats = require('../services/room-seat-service');
 
+function requireRoomMember(socket, roomId) {
+    if (!socket.roomIds || !socket.roomIds.has(roomId)) {
+        throw new Error('ROOM_MEMBERSHIP_REQUIRED');
+    }
+}
+
 function emitSeats(io, roomId) {
     io.to(`room:${roomId}`).emit('room:seats', {
         ok: true,
@@ -19,6 +25,7 @@ function registerSeatSocket(io, socket) {
             if (!roomId) throw new Error('ROOM_ID_REQUIRED');
 
             roomEngine.getEngineState(roomId);
+            requireRoomMember(socket, roomId);
 
             const seat = roomSeats.requestSeat(
                 roomId,
@@ -45,6 +52,7 @@ function registerSeatSocket(io, socket) {
             if (!roomId) throw new Error('ROOM_ID_REQUIRED');
 
             const state = roomEngine.getEngineState(roomId);
+              requireRoomMember(socket, roomId);
 
             if (state.engine.hostUserId !== socket.userId) {
                 throw new Error('HOST_ONLY');
@@ -74,6 +82,7 @@ function registerSeatSocket(io, socket) {
             if (!roomId) throw new Error('ROOM_ID_REQUIRED');
 
             const state = roomEngine.getEngineState(roomId);
+              requireRoomMember(socket, roomId);
 
             if (state.engine.hostUserId !== socket.userId) {
                 throw new Error('HOST_ONLY');
@@ -100,6 +109,7 @@ function registerSeatSocket(io, socket) {
             const roomId = payload?.roomId;
 
             if (!roomId) throw new Error('ROOM_ID_REQUIRED');
+              requireRoomMember(socket, roomId);
 
             const result = roomSeats.leaveSeat(
                 roomId,
@@ -123,6 +133,7 @@ function registerSeatSocket(io, socket) {
             const seatNumber = payload?.seatNumber;
 
             if (!roomId) throw new Error('ROOM_ID_REQUIRED');
+              requireRoomMember(socket, roomId);
 
             const seat = roomSeats.setMedia(
                 roomId,
@@ -150,6 +161,7 @@ function registerSeatSocket(io, socket) {
             const roomId = payload?.roomId;
 
             if (!roomId) throw new Error('ROOM_ID_REQUIRED');
+              requireRoomMember(socket, roomId);
 
             callback?.({
                 ok: true,

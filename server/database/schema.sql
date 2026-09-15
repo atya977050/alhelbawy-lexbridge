@@ -106,8 +106,6 @@ ON follows(follower_user_id);
 -- 002_add_password_hash.sql
 PRAGMA foreign_keys = ON;
 
-ALTER TABLE users
-ADD COLUMN password_hash TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_users_username
 ON users(username);
@@ -116,8 +114,6 @@ ON users(username);
 -- 003_profile.sql
 PRAGMA foreign_keys = ON;
 
-ALTER TABLE users
-ADD COLUMN bio TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_users_status
 ON users(status);
@@ -126,11 +122,6 @@ ON users(status);
 -- 004_room_settings.sql
 PRAGMA foreign_keys = ON;
 
-ALTER TABLE rooms ADD COLUMN rules TEXT;
-ALTER TABLE rooms ADD COLUMN welcome_message TEXT;
-ALTER TABLE rooms ADD COLUMN cover_image TEXT;
-ALTER TABLE rooms ADD COLUMN max_viewers INTEGER NOT NULL DEFAULT 100;
-ALTER TABLE rooms ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_rooms_status
 ON rooms(status);
@@ -142,14 +133,12 @@ ON rooms(owner_user_id);
 -- 006_social_relations.sql
 PRAGMA foreign_keys = ON;
 
-ALTER TABLE friendships
-ADD COLUMN requested_by_user_id TEXT;
+
 
 CREATE INDEX IF NOT EXISTS idx_friendships_user
 ON friendships(user_id, friend_user_id, status);
 
-CREATE INDEX IF NOT EXISTS idx_friendships_requester
-ON friendships(requested_by_user_id, status);
+
 
 CREATE INDEX IF NOT EXISTS idx_follows_pair
 ON follows(follower_user_id, followed_user_id);
@@ -191,3 +180,165 @@ ON room_seats(room_id);
 
 CREATE INDEX IF NOT EXISTS idx_room_seats_user
 ON room_seats(user_id);
+
+-- ============================================================
+-- LEXBRIDGE COMMERCE / COINS / VIP PURCHASE SYSTEM
+-- ============================================================
+
+PRAGMA foreign_keys = ON;
+
+-- رصيد العملات الافتراضية داخل المنصة
+CREATE TABLE IF NOT EXISTS coin_wallets (
+    coin_wallet_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL UNIQUE,
+    balance_coins INTEGER NOT NULL DEFAULT 0,
+    version INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY(user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+
+    CHECK(balance_coins >= 0)
+);
+
+-- باقات شراء العملات
+CREATE TABLE IF NOT EXISTS coin_packages (
+    package_id TEXT PRIMARY KEY,
+    package_code TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    price_minor INTEGER NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'USD',
+    coins INTEGER NOT NULL,
+    bonus_coins INTEGER NOT NULL DEFAULT 0,
+    total_coins INTEGER NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CHECK(price_minor > 0),
+    CHECK(coins > 0),
+    CHECK(bonus_coins >= 0),
+    CHECK(total_coins = coins + bonus_coins)
+);
+
+-- سجل عمليات العملات
+CREATE TABLE IF NOT EXISTS coin_transactions (
+    transaction_id TEXT PRIMARY KEY,
+    coin_wallet_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    amount_coins INTEGER NOT NULL,
+    balance_before INTEGER NOT NULL,
+    balance_after INTEGER NOT NULL,
+    reference_type TEXT,
+    reference_id TEXT,
+    idempotency_key TEXT UNIQUE,
+    description TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY(coin_wallet_id)
+        REFERENCES coin_wallets(coin_wallet_id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY(user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+
+    CHECK(amount_coins > 0),
+    CHECK(direction IN ('credit', 'debit')),
+    CHECK(balance_before >= 0),
+    CHECK(balance_after >= 0)
+);
+
+-- عمليات شراء باقات العملات
+CREATE TABLE IF NOT EXISTS coin_purchases (
+    purchase_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    package_id TEXT NOT NULL,
+    package_code TEXT NOT NULL,
+    price_minor INTEGER NOT NULL,
+    currency TEXT NOT NULL,
+    coins INTEGER NOT NULL,
+    bonus_coins INTEGER NOT NULL DEFAULT 0,
+    total_coins INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'COMPLETED',
+    payment_reference TEXT,
+    idempotency_key TEXT UNIQUE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY(user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY(package_id)
+        REFERENCES coin_packages(package_id),
+
+    CHECK(price_minor > 0),
+    CHECK(total_coins = coins + bonus_coins),
+    CHECK(status IN ('PENDING', 'COMPLETED', 'FAILED', 'CANCELLED'))
+);
+
+-- منتجات العضوية المدفوعة
+CREATE TABLE IF NOT EXISTS vip_products (
+    product_id TEXT PRIMARY KEY,
+    product_code TEXT NOT NULL UNIQUE,
+    membership_type TEXT NOT NULL,
+    level INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    duration_days INTEGER NOT NULL DEFAULT 30,
+    price_coins INTEGER NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CHECK(level >= 1 AND level <= 6),
+    CHECK(duration_days > 0),
+    CHECK(price_coins > 0),
+    CHECK(membership_type IN ('VIP', 'SVIP'))
+);
+
+-- مشتريات VIP
+CREATE TABLE IF NOT EXISTS vip_purchases (
+    purchase_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    product_code TEXT NOT NULL,
+    membership_type TEXT NOT NULL,
+    level INTEGER NOT NULL,
+    price_coins INTEGER NOT NULL,
+    duration_days INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'COMPLETED',
+    starts_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    idempotency_key TEXT UNIQUE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY(user_id)
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY(product_id)
+        REFERENCES vip_products(product_id),
+
+    CHECK(level >= 1 AND level <= 6),
+    CHECK(price_coins > 0),
+    CHECK(status IN ('PENDING', 'COMPLETED', 'FAILED', 'CANCELLED'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_coin_transactions_user
+ON coin_transactions(user_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_coin_purchases_user
+ON coin_purchases(user_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_vip_products_level
+ON vip_products(level, is_active);
+
+CREATE INDEX IF NOT EXISTS idx_vip_purchases_user
+ON vip_purchases(user_id, created_at);
+

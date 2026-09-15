@@ -52,6 +52,20 @@ function requireAuth(req, res, next) {
             session
         };
 
+        // Compatibility layer:
+        // جميع الـ routes القديمة التي تستخدم req.user
+        // تعمل على نفس جلسة المستخدم المعتمدة.
+        req.user = {
+            ...session,
+            user_id:
+                session.user_id ||
+                session.userId ||
+                session.id ||
+                session.user?.user_id ||
+                session.user?.userId ||
+                session.user?.id
+        };
+
         next();
     } catch (error) {
         console.error(

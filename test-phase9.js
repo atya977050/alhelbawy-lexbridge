@@ -13,7 +13,7 @@ function request(path, method, body, token) {
 
         const req = http.request({
             hostname: '127.0.0.1',
-            port: 3458,
+            port: 3000,
             path,
             method,
             headers: {
@@ -84,7 +84,7 @@ function request(path, method, body, token) {
 
     console.log('ENGINE_START_OK');
 
-    const socket = io('http://127.0.0.1:3458', {
+    const socket = io('http://127.0.0.1:3000', {
         auth: { token },
         transports: ['websocket']
     });

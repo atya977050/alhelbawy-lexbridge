@@ -85,6 +85,46 @@ function stopRoomCenter(userId) {
     };
 }
 
+
+function getAvailableRooms() {
+    const { execFileSync } = require('child_process');
+    const path = require('path');
+
+    const dbPath =
+        process.env.LEXBRIDGE_DB_PATH ||
+        path.join(__dirname, '..', '..', 'data', 'lexbridge.sqlite');
+
+    const script = `
+        SELECT
+            r.room_id,
+            r.owner_user_id,
+            r.name,
+            r.description,
+            r.status,
+            r.cover_image,
+            r.max_viewers,
+            r.is_locked,
+            r.created_at,
+            r.updated_at
+        FROM rooms r
+        WHERE r.status = 'LIVE'
+        ORDER BY r.updated_at DESC, r.created_at DESC;
+    `;
+
+    const output = execFileSync(
+        'sqlite3',
+        ['-json', dbPath, script],
+        { encoding: 'utf8' }
+    ).trim();
+
+    const rooms = output ? JSON.parse(output) : [];
+
+    return rooms.map(room => ({
+        ...room,
+        viewerCount: getViewerCount(room.room_id)
+    }));
+}
+
 function getShareData(req, userId) {
     const room = getMyRoom(userId);
 
@@ -113,5 +153,6 @@ module.exports = {
     updateRoomCenter,
     startRoomCenter,
     stopRoomCenter,
-    getShareData
+    getShareData,
+    getAvailableRooms
 };

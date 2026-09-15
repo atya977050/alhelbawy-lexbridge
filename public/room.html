@@ -81,7 +81,200 @@ button.active{background:#28633b}
     font-size:13px;
     white-space:pre-wrap;
 }
+
+.room-panel{
+    margin-top:14px;
+    padding:14px;
+    background:#17171d;
+    border:1px solid #292932;
+    border-radius:14px;
+}
+.panel-title{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    margin-bottom:12px;
+}
+.seats-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:8px;
+}
+.seat{
+    min-height:72px;
+    padding:8px;
+    border-radius:10px;
+    background:#202028;
+    border:1px solid #30303a;
+    text-align:center;
+    font-size:12px;
+}
+.seat.occupied{
+    border-color:#28633b;
+    background:#183322;
+}
+.seat.requested{
+    border-color:#806522;
+    background:#302812;
+}
+.seat-number{
+    font-size:16px;
+    font-weight:bold;
+}
+.seat-user{
+    margin-top:5px;
+    color:#aaa;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+.seat-media{
+    margin-top:4px;
+    font-size:11px;
+}
+.seat-empty{
+    grid-column:1/-1;
+    padding:14px;
+    text-align:center;
+    color:#999;
+}
+.seat-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:12px;
+}
+.seat-actions select{
+    flex:1;
+    min-width:140px;
+    padding:11px;
+    border:1px solid #444;
+    border-radius:9px;
+    background:#101014;
+    color:#fff;
+}
+.seat-actions button{
+    padding:11px 13px;
+}
+.room-ads{
+    padding:13px;
+    border-radius:10px;
+    background:#211b10;
+    color:#d9b96e;
+    text-align:center;
+}
+
+
+
+.room-ad-item {
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.06);
+}
+
+.room-ad-item:last-child {
+    margin-bottom: 0;
+}
+
+.room-chat {
+    margin-top: 16px;
+}
+
+.room-chat-messages {
+    height: 260px;
+    overflow-y: auto;
+    padding: 10px;
+    border-radius: 14px;
+    background: rgba(0,0,0,.18);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.chat-message {
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.06);
+}
+
+.chat-user {
+    font-weight: 700;
+    margin-left: 6px;
+}
+
+.chat-time {
+    opacity: .55;
+    font-size: 11px;
+}
+
+.room-chat-form {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.room-chat-form input {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 10px;
+    padding: 10px;
+    background: rgba(0,0,0,.2);
+    color: inherit;
+}
+
+.room-chat-form button {
+    border: 0;
+    border-radius: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+}
+
 </style>
+
+<style id="lexbridge-global-back-style">
+#lexbridge-global-back {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    z-index: 2147483646;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-width: 92px;
+    height: 42px;
+    padding: 0 14px;
+    border: 1px solid rgba(212,175,55,.75);
+    border-radius: 22px;
+    background: rgba(10,10,10,.92);
+    color: #f5d76e;
+    font-size: 15px;
+    font-weight: 700;
+    box-shadow: 0 6px 22px rgba(0,0,0,.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    cursor: pointer;
+}
+
+#lexbridge-global-back:active {
+    transform: scale(.96);
+}
+
+@media (max-width: 600px) {
+    #lexbridge-global-back {
+        top: 10px;
+        right: 10px;
+        min-width: 82px;
+        height: 38px;
+        padding: 0 11px;
+        font-size: 14px;
+    }
+}
+</style>
+
 </head>
 
 <body>
@@ -117,9 +310,193 @@ button.active{background:#28633b}
 
 <div id="log" class="log"></div>
 
+<section class="room-panel">
+    <div class="panel-title">
+        <strong>🪑 مقاعد الغرفة</strong>
+        <span id="viewerCount">👥 0</span>
+    </div>
+
+
+<section id="roomChat" class="room-panel room-chat">
+    <div class="panel-title">
+        <strong>💬 محادثة الغرفة</strong>
+    </div>
+
+    <div id="roomChatMessages" class="room-chat-messages">
+        <div class="chat-message">جاري تحميل المحادثة...</div>
+    </div>
+
+    <form id="roomChatForm" class="room-chat-form">
+        <input
+            id="roomChatInput"
+            type="text"
+            maxlength="1000"
+            autocomplete="off"
+            placeholder="اكتب رسالتك..."
+        >
+        <button type="submit">إرسال</button>
+    </form>
+</section>
+
+<div id="roomSeats" class="seats-grid">
+        <div class="seat-empty">جاري تحميل المقاعد...</div>
+    </div>
+
+    <div class="seat-actions">
+        <select id="seatNumber">
+            <option value="">اختر مقعدًا</option>
+        </select>
+        <button id="requestSeat">🪑 طلب الجلوس</button>
+        <button id="leaveSeat">🚪 مغادرة المقعد</button>
+    </div>
+</section>
+
+<section class="room-panel">
+    <div class="panel-title">
+        <strong>📢 إعلانات الغرفة</strong>
+    </div>
+    <div id="roomAds" class="room-ads">
+        مرحبًا بكم في غرفة الهلباوى LexBridge
+    </div>
+</section>
+
 </main>
 
 <script src="/socket.io/socket.io.js"></script>
+<script>
+function renderSeats(seats){
+    const container = document.getElementById('roomSeats');
+    const select = document.getElementById('seatNumber');
+
+    if(!Array.isArray(seats)){
+        return;
+    }
+
+    const occupied = seats.filter(
+        seat => seat.status === 'OCCUPIED'
+    ).length;
+
+    document.getElementById('viewerCount').textContent =
+        '👥 ' + occupied;
+
+    container.innerHTML = seats.map(seat => {
+        const status = seat.status || 'EMPTY';
+        const user = seat.user_id || '';
+
+        let text = 'فارغ';
+
+        if(status === 'OCCUPIED'){
+            text = 'مشغول';
+        }else if(status === 'REQUESTED'){
+            text = 'في انتظار القبول';
+        }
+
+        const media =
+            status === 'OCCUPIED'
+                ? `${seat.mic_enabled ? '🎙️' : '🔇'} ${seat.camera_enabled ? '📷' : '🚫'}`
+                : '';
+
+        return `
+            <div class="seat ${status.toLowerCase()}">
+                <div class="seat-number">مقعد ${seat.seat_number}</div>
+                <div class="seat-user">${user ? escapeHtml(user) : text}</div>
+                <div class="seat-media">${media}</div>
+            </div>
+        `;
+    }).join('');
+
+    select.innerHTML =
+        '<option value="">اختر مقعدًا</option>' +
+        seats
+            .filter(seat => seat.status === 'EMPTY')
+            .map(seat =>
+                `<option value="${seat.seat_number}">مقعد ${seat.seat_number}</option>`
+            )
+            .join('');
+}
+
+function escapeHtml(value){
+    return String(value ?? '')
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#039;');
+}
+
+function requestSeat(){
+    const seatNumber =
+        document.getElementById('seatNumber').value;
+
+    if(!seatNumber){
+        setStatus('اختر مقعدًا أولًا');
+        return;
+    }
+
+    socket.emit(
+        'seat:request',
+        {
+            roomId,
+            seatNumber:Number(seatNumber)
+        },
+        response => {
+            if(!response?.ok){
+                setStatus(
+                    'تعذر طلب المقعد: ' +
+                    (response?.error || '')
+                );
+                return;
+            }
+
+            setStatus('تم إرسال طلب الجلوس');
+        }
+    );
+}
+
+function leaveSeat(){
+    socket.emit(
+        'seat:leave',
+        {roomId},
+        response => {
+            if(!response?.ok){
+                setStatus(
+                    'تعذر مغادرة المقعد: ' +
+                    (response?.error || '')
+                );
+                return;
+            }
+
+            setStatus('تمت مغادرة المقعد');
+        }
+    );
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadRoomAds();
+
+    const roomChatForm = document.getElementById('roomChatForm');
+
+    if (roomChatForm) {
+        roomChatForm.addEventListener('submit', event => {
+            event.preventDefault();
+            sendRoomMessage();
+        });
+    }
+
+
+    const requestButton = document.getElementById('requestSeat');
+    const leaveButton = document.getElementById('leaveSeat');
+
+    if(requestButton){
+        requestButton.onclick = requestSeat;
+    }
+
+    if(leaveButton){
+        leaveButton.onclick = leaveSeat;
+    }
+});
+
+</script>
 
 <script>
 const params = new URLSearchParams(location.search);
@@ -494,7 +871,207 @@ async function connect(){
         );
     });
 
-    socket.on('webrtc:offer', handleOffer);
+
+
+async function loadRoomAds() {
+    const container = document.getElementById('roomAds');
+
+    if (!container || !roomId) {
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `/api/rooms/${encodeURIComponent(roomId)}/ads`
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || !result?.ok) {
+            throw new Error(
+                result?.error || 'ROOM_ADS_LOAD_ERROR'
+            );
+        }
+
+        const ads = result.data?.ads || [];
+
+        if (!ads.length) {
+            container.innerHTML =
+                'لا توجد إعلانات حالياً.';
+            return;
+        }
+
+        container.innerHTML = ads.map(ad => `
+            <div class="room-ad-item">
+                <strong>${escapeChatHtml(ad.title)}</strong>
+                <div>${escapeChatHtml(ad.content)}</div>
+            </div>
+        `).join('');
+    } catch (error) {
+        container.innerHTML =
+            'تعذر تحميل إعلانات الغرفة.';
+    }
+}
+
+function escapeChatHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function renderRoomMessages(messages) {
+    const container = document.getElementById('roomChatMessages');
+
+    if (!container) {
+        return;
+    }
+
+    if (!messages || messages.length === 0) {
+        container.innerHTML =
+            '<div class="chat-message">لا توجد رسائل بعد.</div>';
+        return;
+    }
+
+    container.innerHTML = messages.map(item => {
+        const name =
+            item.display_name ||
+            item.username ||
+            'مستخدم';
+
+        const time = item.created_at
+            ? new Date(item.created_at).toLocaleTimeString('ar-EG', {
+                hour: '2-digit',
+                minute: '2-digit'
+            })
+            : '';
+
+        return `
+            <div class="chat-message">
+                <span class="chat-user">${escapeChatHtml(name)}</span>
+                <span class="chat-time">${escapeChatHtml(time)}</span>
+                <div>${escapeChatHtml(item.message)}</div>
+            </div>
+        `;
+    }).join('');
+
+    container.scrollTop = container.scrollHeight;
+}
+
+function loadRoomMessages() {
+    socket.emit(
+        'room:chat:list',
+        {
+            roomId,
+            limit: 50
+        },
+        response => {
+            if (response?.ok) {
+                renderRoomMessages(
+                    response.data?.messages || []
+                );
+            }
+        }
+    );
+}
+
+function sendRoomMessage() {
+    const input = document.getElementById('roomChatInput');
+
+    if (!input) {
+        return;
+    }
+
+    const message = input.value.trim();
+
+    if (!message) {
+        return;
+    }
+
+    socket.emit(
+        'room:chat:send',
+        {
+            roomId,
+            message
+        },
+        response => {
+            if (response?.ok) {
+                input.value = '';
+                input.focus();
+            } else if (response?.error) {
+                alert(response.error);
+            }
+        }
+    );
+}
+
+socket.on('room:chat:message', message => {
+    if (!message || message.room_id !== roomId) {
+        return;
+    }
+
+    const container = document.getElementById('roomChatMessages');
+
+    if (!container) {
+        return;
+    }
+
+    const empty = container.querySelector('.chat-message');
+
+    if (
+        empty &&
+        empty.textContent.includes('لا توجد رسائل')
+    ) {
+        container.innerHTML = '';
+    }
+
+    const name =
+        message.display_name ||
+        message.username ||
+        'مستخدم';
+
+    const time = message.created_at
+        ? new Date(message.created_at).toLocaleTimeString('ar-EG', {
+            hour: '2-digit',
+            minute: '2-digit'
+        })
+        : '';
+
+    const item = document.createElement('div');
+    item.className = 'chat-message';
+
+    item.innerHTML = `
+        <span class="chat-user">${escapeChatHtml(name)}</span>
+        <span class="chat-time">${escapeChatHtml(time)}</span>
+        <div>${escapeChatHtml(message.message)}</div>
+    `;
+
+    container.appendChild(item);
+    container.scrollTop = container.scrollHeight;
+});
+
+
+socket.on('room:seats', data => {
+    if(data?.roomId !== roomId){
+        return;
+    }
+
+    renderSeats(data.seats || []);
+});
+
+socket.emit(
+    'seat:list',
+    {roomId},
+    response => {
+        if(response?.ok){
+            renderSeats(response.data?.seats || []);
+        }
+    }
+);
+
+socket.on('webrtc:offer', handleOffer);
     socket.on('webrtc:answer', handleAnswer);
     socket.on('webrtc:ice-candidate', handleIce);
 
@@ -599,6 +1176,302 @@ try{
 }catch(error){
     setStatus(error.message);
 }
+</script>
+
+
+<script id="lexbridge-global-back-script">
+(function () {
+    'use strict';
+
+    function isHomeScreen() {
+        var path = String(window.location.pathname || '').toLowerCase();
+
+        if (path.endsWith('/room.html')) {
+            return false;
+        }
+
+        var overlays = [
+            'activityCenter',
+            'messagesCenter',
+            'meCenter',
+            'walletCenter',
+            'featuresCenter',
+            'roomsCenter'
+        ];
+
+        for (var i = 0; i < overlays.length; i++) {
+            var el = document.getElementById(overlays[i]);
+            if (el && !el.classList.contains('hidden')) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    function findOpenScreen() {
+        var selectors = [
+            '#activityCenter:not(.hidden)',
+            '#messagesCenter:not(.hidden)',
+            '#meCenter:not(.hidden)',
+            '#walletCenter:not(.hidden)',
+            '#featuresCenter:not(.hidden)',
+            '#roomsCenter:not(.hidden)',
+            '[data-lexbridge-screen]:not(.hidden)'
+        ];
+
+        for (var i = 0; i < selectors.length; i++) {
+            try {
+                var found = document.querySelector(selectors[i]);
+                if (found) return found;
+            } catch (_) {}
+        }
+
+        return null;
+    }
+
+    function closeKnownScreen() {
+        var open = findOpenScreen();
+
+        if (!open) {
+            return false;
+        }
+
+        var id = open.id;
+
+        var closers = {
+            activityCenter: 'closeActivityCenter',
+            messagesCenter: 'closeMessagesCenter',
+            meCenter: 'closeMeCenter',
+            walletCenter: 'closeWalletCenter',
+            featuresCenter: 'closeFeaturesCenter',
+            roomsCenter: 'closeRoomsCenter'
+        };
+
+        var fnName = closers[id];
+
+        if (fnName && typeof window[fnName] === 'function') {
+            try {
+                window[fnName]();
+                return true;
+            } catch (_) {}
+        }
+
+        open.classList.add('hidden');
+        return true;
+    }
+
+    function goBack() {
+        if (closeKnownScreen()) {
+            update();
+            return;
+        }
+
+        var path = String(window.location.pathname || '').toLowerCase();
+
+        if (path.endsWith('/room.html')) {
+            window.location.href = '/';
+            return;
+        }
+
+        if (window.history.length > 1) {
+            window.history.back();
+            return;
+        }
+
+        window.location.href = '/';
+    }
+
+    function update() {
+        var button = document.getElementById('lexbridge-global-back');
+
+        if (!button) return;
+
+        button.style.display = isHomeScreen() ? 'none' : 'flex';
+    }
+
+    function install() {
+        if (document.getElementById('lexbridge-global-back')) {
+            update();
+            return;
+        }
+
+        var button = document.createElement('button');
+
+        button.id = 'lexbridge-global-back';
+        button.type = 'button';
+        button.setAttribute('aria-label', 'رجوع');
+        button.innerHTML = '↩️ <span>رجوع</span>';
+        button.addEventListener('click', goBack);
+
+        document.body.appendChild(button);
+
+        update();
+
+        var observer = new MutationObserver(function () {
+            update();
+        });
+
+        observer.observe(document.body, {
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class']
+        });
+
+        window.addEventListener('popstate', update);
+        window.addEventListener('hashchange', update);
+
+        window.lexBridgeGlobalBack = goBack;
+        window.lexBridgeUpdateBackButton = update;
+
+        console.log('LEXBRIDGE_GLOBAL_BACK_READY');
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', install);
+    } else {
+        install();
+    }
+})();
+</script>
+
+
+<script id="alhelbawy-room-realtime-script">
+(function () {
+    "use strict";
+
+    function applyRoomRealtimeState(payload) {
+        if (!payload) return;
+
+        const state =
+            payload.data ||
+            payload.state ||
+            payload.room ||
+            payload;
+
+        if (!state || typeof state !== "object") return;
+
+        const viewerCount =
+            state.viewerCount ??
+            state.viewer_count ??
+            state.presence?.viewerCount ??
+            state.presence?.count;
+
+        if (viewerCount !== undefined) {
+            const candidates = [
+                "viewerCount",
+                "roomViewerCount",
+                "viewer-count",
+                "room-viewer-count"
+            ];
+
+            candidates.forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) el.textContent = String(viewerCount);
+            });
+
+            document
+                .querySelectorAll(
+                    "[data-room-viewers], [data-viewer-count]"
+                )
+                .forEach(function (el) {
+                    el.textContent = String(viewerCount);
+                });
+        }
+
+        if (state.status) {
+            document
+                .querySelectorAll(
+                    "[data-room-status], #roomStatus"
+                )
+                .forEach(function (el) {
+                    el.textContent = String(state.status);
+                });
+        }
+
+        if (state.name || state.room_name) {
+            const name = state.name || state.room_name;
+
+            document
+                .querySelectorAll(
+                    "[data-room-name], #roomName"
+                )
+                .forEach(function (el) {
+                    el.textContent = String(name);
+                });
+        }
+
+        window.dispatchEvent(
+            new CustomEvent("lexbridge:room-state", {
+                detail: state
+            })
+        );
+    }
+
+    function attachRoomRealtime(socket) {
+        if (!socket || socket.__lexbridgeRoomRealtime) return;
+
+        socket.__lexbridgeRoomRealtime = true;
+
+        socket.on("room:state", function (payload) {
+            console.log("LEXBRIDGE_ROOM_STATE", payload);
+            applyRoomRealtimeState(payload);
+        });
+
+        socket.on("room:updated", function (payload) {
+            console.log("LEXBRIDGE_ROOM_UPDATED", payload);
+            applyRoomRealtimeState(payload);
+        });
+
+        socket.on("room:presence", function (payload) {
+            console.log("LEXBRIDGE_ROOM_PRESENCE", payload);
+            applyRoomRealtimeState(payload);
+        });
+
+        window.__LEXBRIDGE_ROOM_REALTIME_READY = true;
+    }
+
+    function scanForSocket() {
+        const candidates = [
+            window.socket,
+            window.roomSocket,
+            window.ioSocket,
+            window.currentSocket
+        ];
+
+        for (const socket of candidates) {
+            if (
+                socket &&
+                typeof socket.on === "function"
+            ) {
+                attachRoomRealtime(socket);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    window.attachLexBridgeRoomRealtime = attachRoomRealtime;
+    window.applyLexBridgeRoomRealtime = applyRoomRealtimeState;
+
+    if (document.readyState === "loading") {
+        document.addEventListener(
+            "DOMContentLoaded",
+            function () {
+                scanForSocket();
+                setTimeout(scanForSocket, 500);
+                setTimeout(scanForSocket, 1500);
+            }
+        );
+    } else {
+        scanForSocket();
+        setTimeout(scanForSocket, 500);
+        setTimeout(scanForSocket, 1500);
+    }
+
+    console.log("ROOM_REALTIME_LISTENER_READY");
+})();
 </script>
 
 </body>

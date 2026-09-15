@@ -11,7 +11,12 @@ const roomCenterRouter = require('./server/routes/room-center');
 const roomEngineRouter = require('./server/routes/room-engine');
 const meRouter = require('./server/routes/me');
 const socialRouter = require('./server/routes/social');
+const activityRouter = require('./server/routes/activity');
 const accountsRouter = require('./server/routes/accounts');
+const messagesRouter = require('./server/routes/messages');
+const walletRouter = require('./server/routes/wallet');
+const featuresRouter = require('./server/routes/features');
+const coinsRouter = require('./server/routes/coins');
 
 const app = express();
 const server = http.createServer(app);
@@ -45,6 +50,11 @@ app.use('/api/room-center', roomCenterRouter);
 app.use('/api/room-engine', roomEngineRouter);
 app.use('/api/me', meRouter);
 app.use('/api/social', socialRouter);
+app.use('/api/activity', activityRouter);
+app.use('/api/messages', messagesRouter);
+app.use('/api/wallet', walletRouter);
+app.use('/api/features', featuresRouter);
+app.use('/api/coins', coinsRouter);
 
 app.use(
     express.static(

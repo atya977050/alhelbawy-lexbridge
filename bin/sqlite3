@@ -1,0 +1,94 @@
+#!/usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+const initSqlJs = require('sql.js');
+
+async function main() {
+  const args = process.argv.slice(2);
+
+  let json = false;
+
+  if (args[0] === '-json') {
+    json = true;
+    args.shift();
+  }
+
+  const dbPath = args.shift();
+
+  if (!dbPath) {
+    process.stderr.write('sqlite3 compatibility: database path required\n');
+    process.exit(2);
+  }
+
+  const sqlArg = args.length ? args.join(' ') : null;
+
+  const SQL = await initSqlJs({
+    locateFile: file =>
+      path.join(
+        process.cwd(),
+        'node_modules',
+        'sql.js',
+        'dist',
+        file
+      )
+  });
+
+  let db;
+
+  if (fs.existsSync(dbPath)) {
+    db = new SQL.Database(fs.readFileSync(dbPath));
+  } else {
+    db = new SQL.Database();
+  }
+
+  let sql = sqlArg;
+
+  if (!sql) {
+    sql = fs.readFileSync(0, 'utf8');
+  }
+
+  try {
+    if (json) {
+      const result = db.exec(sql);
+
+      const rows = [];
+
+      for (const table of result) {
+        for (const values of table.values) {
+          const row = {};
+
+          table.columns.forEach((column, index) => {
+            row[column] = values[index];
+          });
+
+          rows.push(row);
+        }
+      }
+
+      process.stdout.write(JSON.stringify(rows));
+    } else {
+      db.exec(sql);
+
+      const exported = db.export();
+
+      fs.mkdirSync(path.dirname(dbPath), {
+        recursive: true
+      });
+
+      fs.writeFileSync(
+        dbPath,
+        Buffer.from(exported)
+      );
+    }
+  } finally {
+    db.close();
+  }
+}
+
+main().catch(error => {
+  process.stderr.write(
+    String(error && error.stack ? error.stack : error) + '\n'
+  );
+  process.exit(1);
+});

@@ -217,9 +217,31 @@ function createPeerConnection(peerId){
         );
     };
 
+    peerConnection.oniceconnectionstatechange = () => {
+        setStatus(
+            'حالة ICE: ' +
+            peerConnection.iceConnectionState
+        );
+        console.log(
+            'ICE_CONNECTION_STATE:',
+            peerConnection.iceConnectionState
+        );
+    };
+
+    peerConnection.onicegatheringstatechange = () => {
+        console.log(
+            'ICE_GATHERING_STATE:',
+            peerConnection.iceGatheringState
+        );
+    };
+
     peerConnection.onconnectionstatechange = () => {
         setStatus(
             'حالة WebRTC: ' +
+            peerConnection.connectionState
+        );
+        console.log(
+            'WEBRTC_CONNECTION_STATE:',
             peerConnection.connectionState
         );
     };

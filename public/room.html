@@ -864,6 +864,61 @@ async function connect(){
         }
     });
 
+    socket.on('seat:invitation', data => {
+        const accepted = confirm('تم إرسال دعوة للمايك والكاميرا. هل تريد قبولها؟');
+
+        socket.emit(
+            accepted ? 'seat:accept' : 'seat:reject',
+            {
+                roomId: data.roomId,
+                seatNumber: data.seat.seat_number
+            },
+            response => {
+                if (!response?.ok) {
+                    setStatus('تعذر معالجة الدعوة: ' + (response?.error || ''));
+                    return;
+                }
+
+                setStatus(
+                    accepted
+                        ? 'تم قبول دعوة المايك والكاميرا'
+                        : 'تم رفض الدعوة'
+                );
+            }
+        );
+    });
+
+    socket.on('seat:accepted', async data => {
+        try {
+            const seatNumber = data?.seat?.seat_number;
+
+            await startMedia();
+
+            socket.emit(
+                'seat:media',
+                {
+                    roomId: data.roomId,
+                    seatNumber,
+                    micEnabled: true,
+                    cameraEnabled: true
+                },
+                response => {
+                    if (!response?.ok) {
+                        setStatus('تعذر تحديث حالة المايك والكاميرا');
+                    }
+                }
+            );
+
+            targetSocketId = data.fromSocketId || targetSocketId;
+
+            await startCall();
+
+            setStatus('تم الاتصال عبر WebRTC');
+        } catch (error) {
+            setStatus('تعذر تشغيل المايك/الكاميرا: ' + error.message);
+        }
+    });
+
     socket.on('connect_error', error => {
         setStatus(
             'فشل الاتصال: ' +

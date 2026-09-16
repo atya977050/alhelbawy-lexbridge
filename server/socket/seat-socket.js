@@ -34,6 +34,17 @@ function registerSeatSocket(io, socket) {
             );
 
             emitSeats(io, roomId);
+            const roomSockets = io.sockets.adapter.rooms.get(`room:${roomId}`);
+            if (roomSockets) {
+                for (const socketId of roomSockets) {
+                    const peer = io.sockets.sockets.get(socketId);
+                    if (peer && peer.userId === roomEngine.getEngineState(roomId).engine.hostUserId) {
+                        peer.emit('seat:invitation', { roomId, seat });
+                        break;
+                    }
+                }
+            }
+
 
             callback?.({ ok: true, data: seat });
         } catch (error) {
@@ -58,12 +69,25 @@ function registerSeatSocket(io, socket) {
                 throw new Error('HOST_ONLY');
             }
 
+            const seatBefore = roomSeats.getSeat(roomId, seatNumber);
+            const requesterUserId = seatBefore.user_id;
             const seat = roomSeats.acceptSeat(
                 roomId,
                 seatNumber
             );
 
             emitSeats(io, roomId);
+
+            const roomSockets = io.sockets.adapter.rooms.get(`room:${roomId}`);
+            if (roomSockets && requesterUserId) {
+                for (const socketId of roomSockets) {
+                    const peer = io.sockets.sockets.get(socketId);
+                    if (peer && peer.userId === requesterUserId) {
+                        peer.emit('seat:accepted', { roomId, seat, fromSocketId: socket.id });
+                        break;
+                    }
+                }
+            }
 
             callback?.({ ok: true, data: seat });
         } catch (error) {

@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const initSqlJs = require('sql.js');
+const { execFileSync } = require('child_process');
 
 const DB_PATH = path.join(
   __dirname,
@@ -10,81 +10,69 @@ const DB_PATH = path.join(
   'lexbridge.sqlite'
 );
 
-let db = null;
-let SQL = null;
+function query(sql, params = []) {
+  const finalSql = applyParams(sql, params);
 
-async function getDb() {
-  if (db) return db;
+  const output = execFileSync(
+    'sqlite3',
+    ['-json', DB_PATH, finalSql],
+    { encoding: 'utf8' }
+  ).trim();
 
-  SQL = await initSqlJs({
-    locateFile: file =>
-      path.join(
-        __dirname,
-        '..',
-        '..',
-        'node_modules',
-        'sql.js',
-        'dist',
-        file
-      )
-  });
-
-  if (fs.existsSync(DB_PATH)) {
-    db = new SQL.Database(fs.readFileSync(DB_PATH));
-  } else {
-    db = new SQL.Database();
-  }
-
-  return db;
+  return output ? JSON.parse(output) : [];
 }
 
-async function query(sql, params = []) {
-  const database = await getDb();
-  const stmt = database.prepare(sql);
+function run(sql, params = []) {
+  const finalSql = applyParams(sql, params);
 
-  try {
-    stmt.bind(params);
+  const statement = finalSql.trim().replace(/;*$/, '') + ';';
+  const output = execFileSync(
+    'sqlite3',
+    [DB_PATH, statement + '\nSELECT changes();'],
+    { encoding: 'utf8' }
+  ).trim();
 
-    const rows = [];
+  const lines = output.split(/\r?\n/).filter(Boolean);
+  const changes = Number(lines.at(-1)) || 0;
 
-    while (stmt.step()) {
-      rows.push(stmt.getAsObject());
+  return { changes };
+}
+
+function applyParams(sql, params) {
+  let index = 0;
+
+  return String(sql).replace(/\?/g, () => {
+    if (index >= params.length) {
+      throw new Error('DB_PARAMETER_MISSING');
     }
 
-    return rows;
-  } finally {
-    stmt.free();
-  }
+    const value = params[index++];
+
+    if (value === null || value === undefined) {
+      return 'NULL';
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value);
+    }
+
+    if (typeof value === 'boolean') {
+      return value ? '1' : '0';
+    }
+
+    return "'" + String(value).replace(/'/g, "''") + "'";
+  });
 }
 
-async function run(sql, params = []) {
-  const database = await getDb();
-  const stmt = database.prepare(sql);
-
-  try {
-    stmt.run(params);
-  } finally {
-    stmt.free();
-  }
-
-  const data = database.export();
-  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-  fs.writeFileSync(DB_PATH, Buffer.from(data));
-
+function getDb() {
   return {
-    changes: database.getRowsModified()
+    query,
+    run
   };
 }
 
 async function close() {
-  if (!db) return;
-
-  const data = db.export();
-  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-  fs.writeFileSync(DB_PATH, Buffer.from(data));
-
-  db.close();
-  db = null;
+  return true;
 }
 
 module.exports = {

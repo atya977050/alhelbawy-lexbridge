@@ -863,6 +863,23 @@ async function connect(){
                     }
 
                     setStatus('تم دخول الغرفة بنجاح');
+
+                socket.emit(
+                    'seat:list',
+                    {roomId},
+                    seatResponse => {
+                        if(seatResponse?.ok){
+                            renderSeats(
+                                seatResponse.data?.seats || []
+                            );
+                        } else {
+                            setStatus(
+                                'تعذر تحميل المقاعد: ' +
+                                (seatResponse?.error || '')
+                            );
+                        }
+                    }
+                );
                 }
             );
 
@@ -1126,15 +1143,6 @@ socket.on('room:seats', data => {
     renderSeats(data.seats || []);
 });
 
-socket.emit(
-    'seat:list',
-    {roomId},
-    response => {
-        if(response?.ok){
-            renderSeats(response.data?.seats || []);
-        }
-    }
-);
 
 socket.on('webrtc:offer', handleOffer);
     socket.on('webrtc:answer', handleAnswer);

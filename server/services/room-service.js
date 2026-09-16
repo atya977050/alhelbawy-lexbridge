@@ -1,3 +1,5 @@
+const roomSeatService = require('./room-seat-service');
+const ensureSeats = roomSeatService.ensureSeats || roomSeatService;
 const crypto = require('crypto');
 const {
     execFileSync

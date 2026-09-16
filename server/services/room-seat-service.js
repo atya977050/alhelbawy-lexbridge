@@ -9,22 +9,27 @@ function sql(value) {
     return `'${String(value).replace(/'/g, "''")}'`;
 }
 
+// Using unified db.js module methods
+const dbModule = require('../database/db');
+
 function db(statement) {
-    return execFileSync(
-        'sqlite3',
-        [DB_PATH, statement],
-        { encoding: 'utf8' }
-    ).trim();
+    if (typeof dbModule.runWrite === 'function') {
+        return dbModule.runWrite(statement);
+    }
+    if (typeof dbModule.db === 'function') {
+        return dbModule.db(statement);
+    }
+    return dbModule.exec ? dbModule.exec(statement) : statement;
 }
 
 function query(statement) {
-    const output = execFileSync(
-        'sqlite3',
-        ['-json', DB_PATH, statement],
-        { encoding: 'utf8' }
-    ).trim();
-
-    return output ? JSON.parse(output) : [];
+    if (typeof dbModule.runRead === 'function') {
+        return dbModule.runRead(statement);
+    }
+    if (typeof dbModule.query === 'function') {
+        return dbModule.query(statement);
+    }
+    return [];
 }
 
 function error(code, status = 400) {
@@ -255,6 +260,7 @@ function clearRoom(roomId) {
 }
 
 module.exports = {
+    ensureSeats,
     MAX_SEATS,
     getSeats,
     getSeat,

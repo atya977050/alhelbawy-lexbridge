@@ -1,3 +1,4 @@
+const { getSeats } = require('./room-seat-service');
 const {
     getRoomById,
     getMyRoom,
@@ -65,11 +66,10 @@ function start(userId) {
         throw error('ROOM_NOT_FOUND', 404);
     }
 
-    if (room.status === 'LIVE') {
-        return getEngineState(room.room_id);
-    }
-
-    const updatedRoom = startRoom(room.room_id, userId);
+    const { run } = require('../database/db');
+    run(`UPDATE rooms SET status = 'LIVE' WHERE room_id = '${room.room_id}'`);
+    
+    getSeats(room.room_id);
 
     setState(room.room_id, {
         roomId: room.room_id,
@@ -78,7 +78,7 @@ function start(userId) {
         startedAt: new Date().toISOString()
     });
 
-    return getEngineState(updatedRoom.room_id);
+    return getEngineState(room.room_id);
 }
 
 function stop(userId) {

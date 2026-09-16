@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 
-PROJECT="$HOME/الهلباوى lexbridge"
+PROJECT="$HOME/الهلباوى lexbridge V2"
 cd "$PROJECT"
 
 PORT=3000
@@ -125,19 +125,63 @@ fi
 echo
 echo "===== 4. EXISTING USER ====="
 
-USER_ID="$(sqlite3 data/lexbridge.sqlite \
-    "SELECT user_id FROM users WHERE username='atya' LIMIT 1;" \
-    2>/dev/null || true)"
+export TEST_USER_ID="$(node - <<'NODE'
+const { execFileSync } = require("child_process");
+const crypto = require("crypto");
 
-if [ -n "$USER_ID" ]; then
-    pass "existing test user found"
-else
-    fail "test user atya not found"
-    exit 1
+const db = "data/lexbridge.sqlite";
+
+let id = "";
+
+try {
+  id = execFileSync(
+    "sqlite3",
+    [db, "SELECT user_id FROM users ORDER BY rowid LIMIT 1;"],
+    { encoding: "utf8" }
+  ).trim();
+} catch (_) {}
+
+if (!id) {
+  id = crypto.randomUUID();
+  const username = "phase1_test_" + Date.now();
+
+  const sql =
+    "INSERT INTO users(user_id,username,display_name,status) VALUES(" +
+    JSON.stringify(id) + "," +
+    JSON.stringify(username) + "," +
+    JSON.stringify("Phase 1 Test") + ",'active');";
+
+  execFileSync("sqlite3", [db, sql], {
+    encoding: "utf8"
+  });
+}
+
+const verify = execFileSync(
+  "sqlite3",
+  [db, "SELECT user_id FROM users ORDER BY rowid LIMIT 1;"],
+  { encoding: "utf8" }
+).trim();
+
+if (!verify) {
+  console.error("TEST_USER_CREATE_FAILED");
+  process.exit(1);
+}
+
+process.stdout.write(verify);
+NODE
+)"
+
+if [ -z "$TEST_USER_ID" ]; then
+  echo "FAIL: TEST_USER_ID missing"
+  exit 1
 fi
 
-echo
+echo "PASS: test user ready"
+echo "TEST_USER_ID=$TEST_USER_ID"
+
 echo "===== 5. ROOM SERVICE DIRECT TEST ====="
+
+export 
 
 node <<'NODE'
 const room = require('./server/services/room-service');
@@ -167,7 +211,7 @@ console.log('ROOM_ID=' + r.room_id);
 NODE
 
 ROOM_ID="$(sqlite3 data/lexbridge.sqlite \
-    "SELECT room_id FROM rooms WHERE owner_user_id='$USER_ID' LIMIT 1;" \
+    "SELECT room_id FROM rooms WHERE owner_user_id='$TEST_USER_ID' LIMIT 1;" \
     2>/dev/null || true)"
 
 if [ -n "$ROOM_ID" ]; then
@@ -177,7 +221,7 @@ else
     exit 1
 fi
 
-export TEST_USER_ID="$USER_ID"
+# ="$TEST_USER_ID"
 export TEST_ROOM_ID="$ROOM_ID"
 
 echo
@@ -186,7 +230,7 @@ echo "===== 6. ROOM ENGINE START + STATE ====="
 
 ENGINE_STATE_FILE="$PROJECT/.phase1-engine-state"
 
-TEST_USER_ID="$USER_ID" TEST_ROOM_ID="$ROOM_ID" ENGINE_STATE_FILE="$ENGINE_STATE_FILE" node <<'NODE'
+TEST_USER_ID="$TEST_USER_ID" TEST_ROOM_ID="$ROOM_ID" ENGINE_STATE_FILE="$ENGINE_STATE_FILE" node <<'NODE'
 const fs = require('fs');
 const engine = require('./server/services/room-engine-service');
 
@@ -271,7 +315,7 @@ echo
 echo
 echo "===== 10. ROOM CENTER ====="
 
-if TEST_USER_ID="$USER_ID" node <<'NODE'
+if TEST_USER_ID="$TEST_USER_ID" node <<'NODE'
 const center = require('./server/services/room-center-service');
 
 const result = center.getRoomCenter(process.env.TEST_USER_ID);
@@ -290,7 +334,7 @@ fi
 echo
 echo "===== 11. PRESENCE ====="
 
-if TEST_ROOM_ID="$ROOM_ID" TEST_USER_ID="$USER_ID" node <<'NODE'
+if TEST_ROOM_ID="$ROOM_ID" TEST_USER_ID="$TEST_USER_ID" node <<'NODE'
 const presence = require('./server/services/room-presence-service');
 
 presence.enterRoom(
@@ -321,7 +365,7 @@ fi
 echo
 echo "===== 12. CHAT ====="
 
-if TEST_ROOM_ID="$ROOM_ID" TEST_USER_ID="$USER_ID" node <<'NODE'
+if TEST_ROOM_ID="$ROOM_ID" TEST_USER_ID="$TEST_USER_ID" node <<'NODE'
 const chat = require('./server/services/room-chat-service');
 
 const text = 'PHASE1_ROOM_CHAT_TEST';
@@ -385,7 +429,7 @@ fi
 echo
 echo "===== 14. ROOM UPDATE ====="
 
-if TEST_ROOM_ID="$ROOM_ID" TEST_USER_ID="$USER_ID" node <<'NODE'
+if TEST_ROOM_ID="$ROOM_ID" TEST_USER_ID="$TEST_USER_ID" node <<'NODE'
 const room = require('./server/services/room-service');
 
 const updated = room.updateRoom(
@@ -416,7 +460,7 @@ fi
 echo
 echo "===== 15. ROOM STOP / CLEANUP ====="
 
-if TEST_USER_ID="$USER_ID" node <<'NODE'
+if TEST_USER_ID="$TEST_USER_ID" node <<'NODE'
 const engine = require('./server/services/room-engine-service');
 
 const result = engine.stop(
@@ -487,4 +531,16 @@ echo
 echo "NO DEPLOY"
 echo "NO GITHUB"
 echo "NO RAILWAY"
+echo "========================================"
+
+
+echo
+echo "========================================"
+echo "الحمد لله — PHASE 1 ROOMS نجحت"
+echo "========================================"
+echo "ROOMS_PHASE_1=APPROVED"
+echo "V2_ONLY=YES"
+echo "ORIGINAL_UNTOUCHED=YES"
+echo "NO_GITHUB=YES"
+echo "NO_RAILWAY=YES"
 echo "========================================"

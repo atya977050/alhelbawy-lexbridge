@@ -572,10 +572,18 @@ function createPeerConnection(peerId){
         peerConnection.addTrack(track, localStream);
     }
 
-    peerConnection.ontrack = event => {
+    peerConnection.ontrack = async event => {
         if(event.streams && event.streams[0]){
             remoteVideo.srcObject = event.streams[0];
-            setStatus('تم استقبال الوسائط من الطرف الآخر');
+            remoteVideo.muted = false;
+            remoteVideo.volume = 1;
+
+            try {
+                await remoteVideo.play();
+                setStatus('تم استقبال الصوت والصورة من الطرف الآخر');
+            } catch(error) {
+                setStatus('تم استقبال الوسائط — اضغط تشغيل الصوت');
+            }
         }
     };
 

@@ -10,9 +10,10 @@
     "check": "node --check server.js"
   },
   "dependencies": {
-    "express": "^4.22.2",
+    "express": "^4.22.3",
     "socket.io": "^4.8.3",
-    "sql.js": "^1.14.2"
+    "sql.js": "^1.14.2",
+    "stripe": "^22.6.2"
   },
   "devDependencies": {
     "socket.io-client": "^4.8.3"

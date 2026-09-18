@@ -653,6 +653,8 @@ app.get('/platform', (req, res) => {
 
                 if (userRole === 'viewer') {
                     videoElement.srcObject = stream;
+                    videoElement.muted = false;
+                    videoElement.volume = 1;
                     placeholder.style.display = 'none';
                     return;
                 }
@@ -1156,17 +1158,15 @@ io.on('connection', (socket) => {
             seatNumber
         });
 
-        if (room.hostSocketId) {
-            io.to(room.hostSocketId).emit(
-                'bigo:seat-request',
-                {
-                    requestId,
-                    socketId: socket.id,
-                    username: member.username,
-                    seatNumber
-                }
-            );
-        }
+        io.to(roomId).emit(
+            'bigo:seat-request',
+            {
+                requestId,
+                socketId: socket.id,
+                username: member.username,
+                seatNumber
+            }
+        );
 
         emitBigoRoomState(io, roomId);
     });

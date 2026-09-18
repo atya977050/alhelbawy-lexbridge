@@ -358,6 +358,7 @@ app.get('/platform', (req, res) => {
         let peerConnection;
         const peerConnections = new Map();
         const remoteStreams = new Map();
+        const pendingIceCandidates = new Map();
         let bigoMediaReady = false;
         const videoElement = document.getElementById('remoteVideo');
         const placeholder = document.getElementById('placeholder');
@@ -680,10 +681,11 @@ app.get('/platform', (req, res) => {
             pc.onconnectionstatechange = () => {
                 if (
                     pc.connectionState === 'failed' ||
-                    pc.connectionState === 'closed' ||
-                    pc.connectionState === 'disconnected'
+                    pc.connectionState === 'closed'
                 ) {
                     peerConnections.delete(targetSocketId);
+                    remoteStreams.delete(targetSocketId);
+                    pendingIceCandidates.delete(targetSocketId);
                 }
             };
 
@@ -771,6 +773,19 @@ app.get('/platform', (req, res) => {
                     new RTCSessionDescription(data.offer)
                 );
 
+                const queuedIce =
+                    pendingIceCandidates.get(data.fromSocketId) || [];
+
+                for (const candidate of queuedIce) {
+                    try {
+                        await pc.addIceCandidate(candidate);
+                    } catch (iceErr) {
+                        console.error('[BIGO] queued ICE error', iceErr);
+                    }
+                }
+
+                pendingIceCandidates.delete(data.fromSocketId);
+
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
 
@@ -802,13 +817,25 @@ app.get('/platform', (req, res) => {
         socket.on('bigo:media-ice', async (data) => {
             if (!data || !data.fromSocketId || !data.candidate) return;
 
+            const candidate = new RTCIceCandidate(data.candidate);
             const pc = peerConnections.get(data.fromSocketId);
-            if (!pc) return;
+
+            if (!pc || !pc.remoteDescription) {
+                const queue =
+                    pendingIceCandidates.get(data.fromSocketId) || [];
+
+                queue.push(candidate);
+
+                pendingIceCandidates.set(
+                    data.fromSocketId,
+                    queue
+                );
+
+                return;
+            }
 
             try {
-                await pc.addIceCandidate(
-                    new RTCIceCandidate(data.candidate)
-                );
+                await pc.addIceCandidate(candidate);
             } catch (err) {
                 console.error('[BIGO] ICE error', err);
             }

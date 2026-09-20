@@ -545,10 +545,21 @@ async function startMedia(){
         return localStream;
     }
 
-    localStream = await navigator.mediaDevices.getUserMedia({
-        audio:true,
-        video:true
-    });
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+            audio:true,
+            video:true
+        });
+    } catch(error) {
+        console.error('MEDIA_ERROR:', error);
+        setStatus(
+            'تعذر تشغيل الميكروفون/الكاميرا: ' +
+            (error.name || 'UnknownError') +
+            ' — ' +
+            (error.message || 'بدون تفاصيل')
+        );
+        throw error;
+    }
 
     localVideo.srcObject = localStream;
 

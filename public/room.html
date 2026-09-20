@@ -302,6 +302,7 @@ button.active{background:#28633b}
 
 <div class="controls">
     <button id="startMedia">🎙️📷 تشغيل الصوت والكاميرا</button>
+    <button id="enableRemoteAudio">🔊 تشغيل صوت الطرف الآخر</button>
     <button id="toggleMic">🎙️ الميكروفون</button>
     <button id="toggleCamera">📷 الكاميرا</button>
     <button id="callPeer">📞 بدء الاتصال</button>
@@ -1153,6 +1154,20 @@ socket.on('webrtc:offer', handleOffer);
         setStatus('تم قطع اتصال Socket');
     });
 }
+
+document
+    .getElementById('enableRemoteAudio')
+    .onclick = async () => {
+        try {
+            remoteVideo.muted = false;
+            remoteVideo.volume = 1;
+            await remoteVideo.play();
+            setStatus('🔊 تم تشغيل صوت الطرف الآخر');
+        } catch(error) {
+            setStatus('تعذر تشغيل صوت الطرف الآخر: ' + error.message);
+            console.error('REMOTE_AUDIO_ERROR:', error);
+        }
+    };
 
 document
     .getElementById('startMedia')

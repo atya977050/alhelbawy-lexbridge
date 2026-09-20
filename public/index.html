@@ -1403,7 +1403,7 @@
 
                         <input
                             id="username"
-                            placeholder="اسم المستخدم"
+                            placeholder="رقم الهاتف أو البريد الإلكتروني"
                             autocomplete="username"
                             style="padding:13px;border-radius:10px;border:1px solid #444;background:#111;color:#fff"
                         >
@@ -1418,7 +1418,24 @@
 
                         <input
                             id="displayName"
-                            placeholder="الاسم الظاهر — عند التسجيل"
+                            placeholder="الاسم"
+                            autocomplete="name"
+                            style="padding:13px;border-radius:10px;border:1px solid #444;background:#111;color:#fff"
+                        >
+
+                        <input
+                            id="phone"
+                            type="tel"
+                            placeholder="رقم الهاتف — عند التسجيل"
+                            autocomplete="tel"
+                            style="padding:13px;border-radius:10px;border:1px solid #444;background:#111;color:#fff"
+                        >
+
+                        <input
+                            id="email"
+                            type="email"
+                            placeholder="البريد الإلكتروني — عند التسجيل"
+                            autocomplete="email"
                             style="padding:13px;border-radius:10px;border:1px solid #444;background:#111;color:#fff"
                         >
 
@@ -1527,6 +1544,8 @@
     const usernameEl = document.getElementById('username');
     const passwordEl = document.getElementById('password');
     const displayNameEl = document.getElementById('displayName');
+    const phoneEl = document.getElementById('phone');
+    const emailEl = document.getElementById('email');
 
     const loginBtn = document.getElementById('loginBtn');
     const registerBtn = document.getElementById('registerBtn');
@@ -1590,6 +1609,10 @@
             `الحساب: ${user.username}`;
 
         status('تم تسجيل الدخول بنجاح');
+    
+        if (typeof loadAvailableRooms === 'function') {
+            loadAvailableRooms();
+        }
     }
 
     function showLoggedOut() {
@@ -1623,7 +1646,7 @@
             const data = await api('/api/auth/login', {
                 method: 'POST',
                 body: JSON.stringify({
-                    username: usernameEl.value.trim(),
+                    login: usernameEl.value.trim(),
                     password: passwordEl.value
                 })
             });
@@ -1646,33 +1669,45 @@
         try {
             status('جاري إنشاء الحساب...');
 
-            const username = usernameEl.value.trim();
+            const name = displayNameEl.value.trim();
+            const phone = phoneEl.value.trim();
+            const email = emailEl.value.trim();
             const password = passwordEl.value;
-            const displayName =
-                displayNameEl.value.trim() || username;
 
             const data = await api('/api/accounts/register', {
                 method: 'POST',
                 body: JSON.stringify({
-                    username,
-                    password,
-                    displayName
+                    name,
+                    phone,
+                    email,
+                    password
                 })
             });
 
-            if (data?.session?.token) {
-                localStorage.setItem(
-                    'lexbridge_token',
-                    data.session.token
-                );
+            const loginValue = phone || email;
 
-                showUser(data.user || data.session);
-                return;
+            if (!loginValue) {
+                throw new Error('أدخل رقم الهاتف أو البريد الإلكتروني');
             }
 
-            status(
-                'تم إنشاء الحساب. سجّل الدخول الآن.'
-            );
+            status('تم إنشاء الحساب. جاري تسجيل الدخول...');
+
+            const loginData = await api('/api/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({
+                    login: loginValue,
+                    password
+                })
+            });
+
+            const token = loginData?.session?.token;
+
+            if (!token) {
+                throw new Error('تم إنشاء الحساب لكن لم يتم استلام رمز الجلسة');
+            }
+
+            localStorage.setItem('lexbridge_token', token);
+            showUser(loginData.user || data.account?.user);
         } catch (error) {
             status(error.message);
         }
@@ -2793,12 +2828,12 @@ window.ACTIVITY_FRONTEND_READY = true;
 
     async function loadProfile() {
         try {
-            const response = await api('/api/me');
+            const response = await api('/api/profile/me');
             const data = response.data || response || {};
 
             state.current =
-                data.user ||
                 data.profile ||
+                data.user ||
                 data.me ||
                 data;
 
@@ -2934,6 +2969,340 @@ window.ACTIVITY_FRONTEND_READY = true;
     window.closeMeCenter = close;
     window.loadMeCenter = load;
     window.ME_CENTER_READY = true;
+
+    /* ME_CENTER_MASTER_FUNCTIONS_V1 */
+    (function () {
+        'use strict';
+
+        function meList() {
+            return byId('meList');
+        }
+
+        function put(title, text, buttons) {
+            const list = meList();
+            if (!list) return;
+
+            let html =
+                '<div class="me-card">' +
+                    '<div class="me-card-avatar">👤</div>' +
+                    '<div style="flex:1">' +
+                        '<strong>' + escapeHtml(title) + '</strong>' +
+                        '<div style="color:#999;margin-top:6px">' +
+                            escapeHtml(text) +
+                        '</div>';
+
+            if (buttons) {
+                html +=
+                    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">' +
+                    buttons +
+                    '</div>';
+            }
+
+            html += '</div></div>';
+            list.innerHTML = html;
+        }
+
+        function actionButton(text, action) {
+            return (
+                '<button type="button" ' +
+                'style="padding:9px 12px;border:0;border-radius:10px;cursor:pointer" ' +
+                'data-me-master-action="' + escapeHtml(action) + '">' +
+                escapeHtml(text) +
+                '</button>'
+            );
+        }
+
+        async function loadWallet() {
+            try {
+                setStatus('جاري تحميل المحفظة...');
+
+                const response = await api('/api/wallet');
+                const data = response.data || {};
+                const wallet = data.wallet || {};
+                const transactions =
+                    Array.isArray(data.transactions)
+                        ? data.transactions
+                        : [];
+
+                const balance =
+                    wallet.balance ??
+                    wallet.amount ??
+                    wallet.balance_minor ??
+                    0;
+
+                let html =
+                    '<div class="me-card">' +
+                    '<div class="me-card-avatar">💰</div>' +
+                    '<div style="flex:1">' +
+                    '<strong>المحفظة</strong>' +
+                    '<div style="font-size:20px;margin-top:8px">' +
+                    escapeHtml(String(balance)) +
+                    '</div>' +
+                    '<div style="color:#999;margin-top:5px">الرصيد الحالي</div>' +
+                    '</div></div>';
+
+                if (transactions.length) {
+                    html += transactions.map(function (item) {
+                        const amount =
+                            item.amount ??
+                            item.amount_minor ??
+                            item.value ??
+                            0;
+
+                        const type =
+                            item.type ||
+                            item.transaction_type ||
+                            item.description ||
+                            'عملية مالية';
+
+                        return (
+                            '<div class="me-card">' +
+                            '<div class="me-card-avatar">💳</div>' +
+                            '<div>' +
+                            '<strong>' +
+                            escapeHtml(String(type)) +
+                            '</strong>' +
+                            '<div style="color:#999;margin-top:5px">' +
+                            escapeHtml(String(amount)) +
+                            '</div>' +
+                            '</div></div>'
+                        );
+                    }).join('');
+                } else {
+                    html +=
+                        '<div class="me-empty">لا توجد معاملات مالية حاليًا</div>';
+                }
+
+                const list = meList();
+                if (list) list.innerHTML = html;
+
+                setStatus('تم تحميل المحفظة');
+            } catch (error) {
+                put(
+                    '💰 المحفظة',
+                    error.message || 'تعذر تحميل المحفظة'
+                );
+                setStatus('تعذر تحميل المحفظة');
+            }
+        }
+
+        async function loadRoom() {
+            try {
+                setStatus('جاري تحميل غرفتك...');
+
+                const response = await api('/api/rooms/me');
+                const room = response.room || response.data || {};
+
+                put(
+                    '🏠 غرفتي',
+                    'الغرفة الشخصية: ' +
+                    (room.name || room.title || room.room_id || 'جاهزة'),
+                    actionButton('فتح الغرفة', 'room-open')
+                );
+
+                setStatus('تم تحميل بيانات الغرفة');
+            } catch (error) {
+                put(
+                    '🏠 غرفتي',
+                    error.message || 'الغرفة الشخصية غير موجودة'
+                );
+                setStatus('تعذر تحميل الغرفة');
+            }
+        }
+
+        function showLanguage() {
+            put(
+                '🌐 اللغة',
+                'اختر لغة الواجهة',
+                actionButton('العربية', 'lang-ar') +
+                actionButton('English', 'lang-en')
+            );
+        }
+
+        function showComments() {
+            const candidates = [
+                'openCommentsCenter',
+                'openComments',
+                'openCommentCenter'
+            ];
+
+            for (const name of candidates) {
+                if (typeof window[name] === 'function') {
+                    window[name]();
+                    return;
+                }
+            }
+
+            put(
+                '💬 التعليقات',
+                'قسم التعليقات موجود في قائمة أنا، وسيتم فتح مركز التعليقات عند توفر خدمته.'
+            );
+        }
+
+        function showSettings() {
+            put(
+                '⚙️ الإعدادات',
+                'إعدادات الحساب والواجهة',
+                actionButton('تحديث الحساب', 'refresh-profile') +
+                actionButton('تسجيل الخروج', 'logout')
+            );
+        }
+
+        function showProfile() {
+            const user = state.current || {};
+
+            put(
+                '👤 الملف الشخصي',
+                (user.display_name || user.username || 'المستخدم') +
+                ' — ' +
+                (user.user_id || user.id || ''),
+                actionButton('تحديث البيانات', 'refresh-profile')
+            );
+        }
+
+        async function runMaster(action) {
+            if (action === 'room-open') {
+                if (typeof window.openMyRoomFromMe === 'function') {
+                    window.openMyRoomFromMe();
+                } else {
+                    const response = await api('/api/rooms/me');
+                    const room = response.room || {};
+                    if (room.room_id) {
+                        location.href =
+                            '/room.html?room=' +
+                            encodeURIComponent(room.room_id);
+                    }
+                }
+                return;
+            }
+
+            if (action === 'wallet-open') {
+                if (typeof window.openWalletFromMe === 'function') {
+                    window.openWalletFromMe();
+                } else {
+                    await loadWallet();
+                }
+                return;
+            }
+
+            if (action === 'features-open') {
+                if (typeof window.openFeaturesCenter === 'function') {
+                    window.openFeaturesCenter();
+                } else {
+                    put(
+                        '⭐ المميزات',
+                        'مركز المميزات غير متاح حاليًا.'
+                    );
+                }
+                return;
+            }
+
+            if (action === 'lang-ar') {
+                localStorage.setItem('lexbridge_language', 'ar');
+                document.documentElement.lang = 'ar';
+                document.documentElement.dir = 'rtl';
+                setStatus('تم اختيار العربية');
+                showLanguage();
+                return;
+            }
+
+            if (action === 'lang-en') {
+                localStorage.setItem('lexbridge_language', 'en');
+                document.documentElement.lang = 'en';
+                document.documentElement.dir = 'ltr';
+                setStatus('تم اختيار English');
+                showLanguage();
+                return;
+            }
+
+            if (action === 'refresh-profile') {
+                await load();
+                showProfile();
+                return;
+            }
+
+            if (action === 'logout') {
+                const btn = byId('logoutBtn');
+                if (btn) {
+                    btn.click();
+                }
+                return;
+            }
+        }
+
+        document.addEventListener('click', function (event) {
+            const item =
+                event.target.closest('[data-me-action]');
+
+            if (!item) return;
+
+            const action =
+                item.getAttribute('data-me-action');
+
+            if (action === 'room') {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                loadRoom();
+                return;
+            }
+
+            if (action === 'wallet') {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                loadWallet();
+                return;
+            }
+
+            if (action === 'features') {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+
+                if (typeof window.openFeaturesCenter === 'function') {
+                    window.openFeaturesCenter();
+                }
+
+                return;
+            }
+
+            if (action === 'language') {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                showLanguage();
+                return;
+            }
+
+            if (action === 'comments') {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                showComments();
+                return;
+            }
+
+            if (action === 'settings') {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                showSettings();
+                return;
+            }
+        }, true);
+
+        document.addEventListener('click', function (event) {
+            const button =
+                event.target.closest('[data-me-master-action]');
+
+            if (!button) return;
+
+            runMaster(
+                button.getAttribute('data-me-master-action')
+            ).catch(function (error) {
+                console.error('[ME MASTER]', error);
+                setStatus(error.message || 'تعذر تنفيذ العملية');
+            });
+        });
+
+        window.ME_CENTER_MASTER_READY = true;
+    })();
+
 })();
 </script>
 

@@ -647,6 +647,12 @@ function createPeerConnection(peerId){
 }
 
 async function startCall(){
+    console.log('WEBRTC_START_CALL', {
+        roomId,
+        targetSocketId,
+        socketId: socket?.id
+    });
+
     if(!socket){
         throw new Error('Socket غير متصل');
     }
@@ -712,6 +718,8 @@ async function startCall(){
 }
 
 async function handleOffer(data){
+    console.log('WEBRTC_OFFER_RECEIVED', data);
+
     await startMedia();
 
     const peerId = data.fromSocketId;
@@ -739,6 +747,8 @@ async function handleOffer(data){
 }
 
 async function handleAnswer(data){
+    console.log('WEBRTC_ANSWER_RECEIVED', data);
+
     if(!peerConnection){
         return;
     }
@@ -751,6 +761,8 @@ async function handleAnswer(data){
 }
 
 async function handleIce(data){
+    console.log('WEBRTC_ICE_RECEIVED', data);
+
     if(!peerConnection || !data.payload){
         return;
     }
